@@ -1,23 +1,64 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
 import { loadBoard, solveBoardGroup } from '../modules/boards'
 import { Col, Row, Grid } from 'react-native-easy-grid'
-
-function coordsToButton(board, r) {
-	return 
-}
+import Tile from './tile'
 
 class Board extends Component {
 	constructor(props) {
 		super(props)
 		this.state = {
-			selectedTiles: []
+			selectedTiles: [],
+			animatedTileTop: new Animated.Value(0),
+			rowPos: {},
+			colPos: {}
 		}
 	}
 
 	componentDidMount() {
 		this.props.dispatch(loadBoard(this.props.boardId))
+
+		this.state.animatedTileTop.setValue(100)
+		Animated.timing(
+			this.state.animatedTileTop,
+			{
+				toValue: 400,
+				duration: 1000,
+				easing: Easing.inOut(Easing.quad),
+				delay: 1000
+			}
+		).start()
+	}
+
+	componentWillReceiveProps(nextProps) {
+		const { swapIndicies } = nextProps.board
+
+		
+		if (!swapIndicies) {
+			return
+		}
+
+		for (let s = 0; s < swapIndicies.length; s++) {
+			let swapIndex = swapIndicies[s]
+			let i1 = Math.floor(swapIndex[0] / 4)
+			let j1 = swapIndex[0] % 4
+
+			let i2 = Math.floor(swapIndex[1] / 4)
+			let j2 = swapIndex[1] % 4
+
+			this.animateSwap([i1, j1], [i2, j2])
+		}
+	}
+
+	animateSwap([i1, j1], [i2, j2]) {
+		const { realI: realI1, realJ: realJ1 } = this.getRealIndexes(i1,j1)
+		const { realI: realI2, realJ: realJ2 } = this.getRealIndexes(i2,j2)
+
+		console.log(this.props.board.board[realI1][realJ1])
+		console.log(this.props.board.board[realI2][realJ2])
+
+		// TODO: complete the animation
 	}
 
 	handlePress(i, j) {
@@ -36,7 +77,24 @@ class Board extends Component {
 				setTimeout(() => { this.checkSelectedTiles() }, 1000)
 			})
 		}
+	}
 
+	handleRowLayout(i, e) {
+		this.setState({
+			rowPos: {
+				...this.state.rowPos,
+				[i]: e.nativeEvent.layout.y
+			}
+		})
+	}
+
+	handleColLayout(i, j, e) {
+		this.setState({
+			colPos: {
+				...this.state.colPos,
+				[j]: e.nativeEvent.layout.x
+			}
+		})
 	}
 
 	checkSelectedTiles() {
@@ -70,6 +128,14 @@ class Board extends Component {
 		return this.state.selectedTiles.findIndex(([_i, _j]) => i === _i && j === _j)
 	}
 
+	getRealIndexes(i, j) {
+		let { randomization } = this.props.board
+		return {
+			realI: randomization[i*4+j][0],
+			realJ: randomization[i*4+j][1]
+		}
+	}
+
 	render() {
 		const { board } = this.props
 		if (!board) {
@@ -81,7 +147,7 @@ class Board extends Component {
 			return <View style={styles.container} />
 		}
 
-		console.log(this.props.board)
+		// console.log(this.props.board)
 
 		return (
 			<View style={styles.container}>
@@ -101,22 +167,16 @@ class Board extends Component {
 							}
 
 							return (
-								<Row key={i} style={rowStyles}>
+								<Row key={i} style={rowStyles} onLayout={this.handleRowLayout.bind(this, i)}>
 									{[0,1,2,3].map(j => {
-										let tileStyles = [styles.tile]
-										const realI = randomization[i*4+j][0],
-													realJ = randomization[i*4+j][1]
-										if (this.isSelected(realI, realJ)) {
-											tileStyles.push(styles.selectedTile)
-										} else if (this.isSolved(realI, realJ)) {
-											tileStyles.push(styles.solvedTile)
-										}
-										return (<Col key={j}>
-											<Text
-												style={tileStyles}
+										const { realI, realJ } = this.getRealIndexes(i,j)
+										return (<Col key={j} onLayout={this.handleColLayout.bind(this, i, j)}>
+											<Tile
+												selected={this.isSelected(realI, realJ)}
+												solved={this.isSolved(realI, realJ)} 
 												onPress={this.handlePress.bind(this, realI, realJ)}>
 												{board.board[realI][realJ]}
-											</Text>
+											</Tile>
 										</Col>)
 									})
 									}
@@ -124,6 +184,12 @@ class Board extends Component {
 							)
 						})}
 					</Grid>
+					<Animated.View style={[styles.animatedTile,
+						{
+							top: this.state.animatedTileTop
+						}]}>
+						<Tile>OH HAI</Tile>
+					</Animated.View>
 				</View>
 			</View>
 		)
@@ -144,7 +210,7 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgb(35,78,43)',
 		padding: 3,
 		flex: 1,
-		height: 252,
+		height: 256,
 		borderColor: 'black',
 		borderStyle: 'solid',
 		borderWidth: 2
@@ -177,6 +243,10 @@ const styles = StyleSheet.create({
 	solvedRow: {
 		backgroundColor: 'rgb(21,177,50)',
 		borderRadius: 12
+	},
+	animatedTile: {
+		position: 'absolute',
+		zIndex: 100
 	}
 })
 
