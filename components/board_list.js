@@ -12,7 +12,7 @@ class BoardList extends Component {
 
 	render() {
 		return (
-			<ScrollView>
+			<ScrollView style={styles.scrollView}>
 				<Text style={styles.title}>בחרי לוח</Text>
 				<View style={styles.container}>
 					{this.props.boards.map(board => {
@@ -33,6 +33,9 @@ class BoardList extends Component {
 const BACK_COLOR = 'rgb(110, 220, 130)'
 
 const styles = StyleSheet.create({
+	scrollView: {
+		backgroundColor: BACK_COLOR
+	},
 	title: {
 		backgroundColor: BACK_COLOR,
 		textAlign: 'center',

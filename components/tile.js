@@ -1,5 +1,5 @@
 import React, { Component, Children } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { TouchableHighlight, View, Text, StyleSheet } from 'react-native'
 
 class Tile extends Component {
 	
@@ -11,11 +11,13 @@ class Tile extends Component {
 			tileStyles.push(styles.solvedTile)
 		}
 
-		return <Text
-			style={tileStyles}
-			{... this.props}>
-			{this.props.children}
-		</Text>
+		return (
+			<TouchableHighlight style={tileStyles} {... this.props}>
+				<Text style={styles.tileText}>
+					{this.props.children}
+				</Text>
+			</TouchableHighlight>
+		)
 	}
 }
 
@@ -23,11 +25,14 @@ const styles = StyleSheet.create({
 	tile: {
 		borderRadius: 10,
 		backgroundColor: 'rgb(68,144,155)',
+		flexGrow: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
+		margin: 2,
+		height: 52
+	},
+	tileText: {		
 		color: 'white',
-		textAlign: 'center',
-		textAlignVertical: 'center',
-		flex: 1,
-		margin: 3
 	},
 	selectedTile: {
 		backgroundColor: 'rgb(10,60,130)',

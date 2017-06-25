@@ -1,8 +1,7 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
-import { loadBoard, solveBoardGroup } from '../modules/boards'
-import { Col, Row, Grid } from 'react-native-easy-grid'
+import { View, Text, TextInput, StyleSheet, Animated, Easing, I18nManager } from 'react-native'
+import { loadBoard, solveBoardGroup, solveConnection } from '../modules/boards'
 import Tile from './tile'
 
 class Board extends Component {
@@ -110,6 +109,13 @@ class Board extends Component {
 			) {
 			console.log('*** YAY SOLVED', boardGroup)
 			this.props.dispatch(solveBoardGroup(this.props.boardId, boardGroup))
+			if (this.props.board.solvedGroups.length === 3)  {
+				// auto-solve the last group
+				this.props.dispatch(solveBoardGroup(this.props.boardId, 
+					// the odd one out is 6 (=0+1+2+3) minus the sum of the solved ones
+					6 - this.props.board.solvedGroups.reduce((acc, v) => acc + v, 0)
+				))
+			}
 		} else {
 			console.log('*** NOPE')
 		}
@@ -131,8 +137,16 @@ class Board extends Component {
 	getRealIndexes(i, j) {
 		let { randomization } = this.props.board
 		return {
-			realI: randomization[i*4+j][0],
-			realJ: randomization[i*4+j][1]
+			realI: randomization[i*4 + j][0],
+			realJ: randomization[i*4 + j][1]
+		}
+	}
+	
+	handleConnectionSubmit(i) {
+		let { realI, _ } = this.getRealIndexes(i, 0)
+		let possibleConnections = this.props.board.connections[realI].split('!').filter(v => v && v.length)
+		if (possibleConnections.indexOf(this.state[`connectionText${i}`]) >= 0) {
+			this.props.dispatch(solveConnection(this.props.boardId, realI))
 		}
 	}
 
@@ -147,49 +161,68 @@ class Board extends Component {
 			return <View style={styles.container} />
 		}
 
-		// console.log(this.props.board)
+		console.log(this.props.board)
+		
+		let rows = [];
+		[0,1,2,3].forEach(i => {
+			let rowStyles = [styles.row]
+			
+			const isSolved = i < this.props.board.solvedGroups.length
+			if (isSolved) {
+				rowStyles.push(styles.solvedRow)
+			}
+			
+			if (i === 0) {
+				rowStyles.push(styles.firstRow)
+			} else if (i === 3) {
+				rowStyles.push(styles.lastRow)
+			}
+			
+			rows.push(
+				<View key={i} style={rowStyles} onLayout={this.handleRowLayout.bind(this, i)}>
+					{[0,1,2,3].map(j => {
+						const { realI, realJ } = this.getRealIndexes(i,j)
+						return (<View style={styles.tile} key={j} onLayout={this.handleColLayout.bind(this, i, j)}>
+							<Tile
+								selected={this.isSelected(realI, realJ)}
+								solved={this.isSolved(realI, realJ)} 
+								onPress={this.handlePress.bind(this, realI, realJ)}>
+								{board.board[realI][realJ]}
+							</Tile>
+						</View>)
+					})
+					}
+				</View>
+			)
+			
+			if (isSolved) {
+				const { realI, _ } = this.getRealIndexes(i, 0)
+				if (this.props.board.solvedGroupConnections.indexOf(realI) < 0) {
+					rows.push(
+						<View key={`connection-${i}`} style={[styles.row, styles.connectionRow]}>
+							<TextInput placeholder="מה הקשר?" 
+								style={styles.connectionText}
+								onChangeText={text => this.setState({ [`connectionText${i}`]: text })}
+								value={this.state[`connectionText${i}`]}
+								returnKeyType='done'
+								onSubmitEditing={this.handleConnectionSubmit.bind(this, i)}
+							/>
+						</View>
+					)
+				}
+			}
+		})
 
 		return (
 			<View style={styles.container}>
 				<View style={styles.board}>
-					<Grid>
-						{[0,1,2,3].map(i => {
-							let rowStyles = [styles.row]
-							
-							if (i < this.props.board.solvedGroups.length) {
-								rowStyles.push(styles.solvedRow)
-							}
-
-							if (i === 0) {
-								rowStyles.push(styles.firstRow)
-							} else if (i === 3) {
-								rowStyles.push(styles.lastRow)
-							}
-
-							return (
-								<Row key={i} style={rowStyles} onLayout={this.handleRowLayout.bind(this, i)}>
-									{[0,1,2,3].map(j => {
-										const { realI, realJ } = this.getRealIndexes(i,j)
-										return (<Col key={j} onLayout={this.handleColLayout.bind(this, i, j)}>
-											<Tile
-												selected={this.isSelected(realI, realJ)}
-												solved={this.isSolved(realI, realJ)} 
-												onPress={this.handlePress.bind(this, realI, realJ)}>
-												{board.board[realI][realJ]}
-											</Tile>
-										</Col>)
-									})
-									}
-								</Row>
-							)
-						})}
-					</Grid>
-					<Animated.View style={[styles.animatedTile,
+					{rows}
+					{/* <Animated.View style={[styles.animatedTile,
 						{
 							top: this.state.animatedTileTop
 						}]}>
 						<Tile>OH HAI</Tile>
-					</Animated.View>
+					</Animated.View> */}
 				</View>
 			</View>
 		)
@@ -199,40 +232,25 @@ class Board extends Component {
 const styles = StyleSheet.create({
 	container: {
 		backgroundColor: 'rgb(110, 220, 130)',
+		padding: 2,
 		flex: 1,
-		flexDirection: 'row',
-		justifyContent: 'center',
-		flexWrap: 'wrap',
-		padding: 2
+		justifyContent: 'center'
 	},
 	board: {
 		borderRadius: 15,
 		backgroundColor: 'rgb(35,78,43)',
 		padding: 3,
-		flex: 1,
-		height: 256,
 		borderColor: 'black',
 		borderStyle: 'solid',
-		borderWidth: 2
-	},
-	tile: {
-		borderRadius: 10,
-		backgroundColor: 'rgb(68,144,155)',
-		color: 'white',
-		textAlign: 'center',
-		textAlignVertical: 'center',
-		flex: 1,
-		margin: 3
-	},
-	selectedTile: {
-		backgroundColor: 'rgb(10,60,130)',
-	},
-	solvedTile: {
-		backgroundColor: 'rgb(0,128,0)',
+		borderWidth: 2,
+		flexDirection: 'column',
+		flexWrap: 'nowrap'
 	},
 	row: {
-		marginTop: 2,
-		marginBottom: 2
+		flexDirection: 'row',
+		flexWrap: 'nowrap',
+		flexGrow: 1,
+		justifyContent: 'space-between'
 	},
 	firstRow: {
 		marginTop: 0
@@ -244,9 +262,24 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgb(21,177,50)',
 		borderRadius: 12
 	},
+	tile: {
+		flexGrow: 1,
+		flexBasis: 0
+	},
 	animatedTile: {
 		position: 'absolute',
 		zIndex: 100
+	},
+	connectionRow: {
+		padding: 3
+	},
+	connectionText: {
+		height: 32,
+		flexGrow: 1,
+		flexDirection: 'row',
+		borderRadius: 5,
+		backgroundColor: 'rgb(153, 255, 173)',
+		textAlign: /*I18nManager.isRTL ? */'right'// : 'left'
 	}
 })
 

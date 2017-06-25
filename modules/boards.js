@@ -5,6 +5,7 @@ const FILL_BOARD = 'FILL_BOARD'
 const ADD_BOARDS = 'ADD_BOARDS'
 const RANDOMIZE_BOARD = 'RANDOMIZE_BOARD'
 const SOLVE_GROUP = 'SOLVE_GROUP'
+const SOLVE_CONNECTION = 'SOLVE_CONNECTION'
 
 function swap(a, i1, i2) {
 	const temp = a[i1]
@@ -58,7 +59,7 @@ export default function reducer(state = { board_list: [], boards: {} }, action) 
 				swapIndicies: []
 			}
 		}
-		case SOLVE_GROUP: 
+		case SOLVE_GROUP: {
 			const board = state[action.payload.boardId]
 			return {
 				...state,
@@ -68,6 +69,17 @@ export default function reducer(state = { board_list: [], boards: {} }, action) 
 					solvedGroups: [...(board.solvedGroups || []), action.payload.group ]
 				}
 			}
+		}
+		case SOLVE_CONNECTION: {
+			const board = state[action.payload.boardId]
+			return {
+				...state,
+				[action.payload.boardId]: {
+					...board,
+					solvedGroupConnections: [ ...board.solvedGroupConnections, action.payload.group ]
+				}
+			}
+		}
 	}
 	return state
 }
@@ -109,4 +121,8 @@ export function loadBoard(boardId) {
 
 export function solveBoardGroup(boardId, group) {
 	return { type: SOLVE_GROUP, payload: { boardId, group } }
+}
+
+export function solveConnection(boardId, group) {
+	return { type: SOLVE_CONNECTION, payload: { boardId, group } }
 }
