@@ -1,11 +1,13 @@
 import { getBoards, getBoard } from '../api'
 import { knuthShuffle } from 'knuth-shuffle'
+import { Set } from 'immutable'
 
 const FILL_BOARD = 'FILL_BOARD'
 const ADD_BOARDS = 'ADD_BOARDS'
 const RANDOMIZE_BOARD = 'RANDOMIZE_BOARD'
 const SOLVE_GROUP = 'SOLVE_GROUP'
 const SOLVE_CONNECTION = 'SOLVE_CONNECTION'
+const WRONG_CONNECTION = 'WRONG_CONNECTION'
 
 function swap(a, i1, i2) {
 	const temp = a[i1]
@@ -39,6 +41,16 @@ function sortRandomization(group, randomization, solvedGroups) {
 	return { randomization, swapIndicies }
 }
 
+function modifyBoard(state, id, newStuff) {
+	return {
+		...state,
+		[id]: {
+			...state[id],
+			...newStuff
+		}
+	}
+}
+
 export default function reducer(state = { board_list: [], boards: {} }, action) {
 	console.log('******************', action )
 	switch (action.type) {
@@ -49,36 +61,31 @@ export default function reducer(state = { board_list: [], boards: {} }, action) 
 			...state.board_list,
 			...action.payload.boards
 		] }
-		case RANDOMIZE_BOARD: return {
-			...state,
-			[action.payload.boardId]: {
-				...state[action.payload.boardId],
-				randomization: action.payload.randomization,
-				solvedGroups: [],
-				solvedGroupConnections: [],
-				swapIndicies: []
-			}
-		}
+		case RANDOMIZE_BOARD: return modifyBoard(state, action.payload.boardId, {
+			randomization: action.payload.randomization,
+			solvedGroups: [],
+			solvedGroupConnections: Set(),
+			wrongGroupConnections: Set(),
+			swapIndicies: []
+		})
 		case SOLVE_GROUP: {
 			const board = state[action.payload.boardId]
-			return {
-				...state,
-				[action.payload.boardId]: {
-					...board,
-					...sortRandomization(action.payload.group, board.randomization, board.solvedGroups),
-					solvedGroups: [...(board.solvedGroups || []), action.payload.group ]
-				}
-			}
+			return modifyBoard(state, action.payload.boardId, {
+				...sortRandomization(action.payload.group, board.randomization, board.solvedGroups),
+				solvedGroups: [...(board.solvedGroups || []), action.payload.group ]
+			})
 		}
 		case SOLVE_CONNECTION: {
 			const board = state[action.payload.boardId]
-			return {
-				...state,
-				[action.payload.boardId]: {
-					...board,
-					solvedGroupConnections: [ ...board.solvedGroupConnections, action.payload.group ]
-				}
-			}
+			return modifyBoard(state, action.payload.boardId, {
+				solvedGroupConnections: board.solvedGroupConnections.add(action.payload.group)
+			})
+		}
+		case WRONG_CONNECTION: {
+			const board = state[action.payload.boardId]
+			return modifyBoard(state, action.payload.boardId, {
+				wrongGroupConnections: board.wrongGroupConnections.add(action.payload.group)
+			})
 		}
 	}
 	return state
@@ -125,4 +132,21 @@ export function solveBoardGroup(boardId, group) {
 
 export function solveConnection(boardId, group) {
 	return { type: SOLVE_CONNECTION, payload: { boardId, group } }
+}
+
+export function wrongConnection(boardId, group) {
+	return { type: WRONG_CONNECTION, payload: { boardId, group } }
+}
+
+export function submitConnection(boardId, input, group) {
+	return (dispatch, getState) => {
+		const board = getState().boards[boardId]
+		let possibleConnections = board.connections[group].split('!').filter(v => v && v.length)
+		if (possibleConnections.indexOf(input) >= 0) {
+			dispatch(solveConnection(boardId, group))
+		} else {
+			dispatch(wrongConnection(boardId, group))
+		}
+	}
+	
 }

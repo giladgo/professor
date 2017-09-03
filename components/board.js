@@ -1,7 +1,7 @@
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { View, Text, TextInput, StyleSheet, Animated, Easing, I18nManager } from 'react-native'
-import { loadBoard, solveBoardGroup, solveConnection } from '../modules/boards'
+import { loadBoard, solveBoardGroup, submitConnection } from '../modules/boards'
 import Tile from './tile'
 
 class Board extends Component {
@@ -144,10 +144,7 @@ class Board extends Component {
 	
 	handleConnectionSubmit(i) {
 		let { realI, _ } = this.getRealIndexes(i, 0)
-		let possibleConnections = this.props.board.connections[realI].split('!').filter(v => v && v.length)
-		if (possibleConnections.indexOf(this.state[`connectionText${i}`]) >= 0) {
-			this.props.dispatch(solveConnection(this.props.boardId, realI))
-		}
+		this.props.dispatch(submitConnection(this.props.boardId, this.state[`connectionText${i}`], realI))
 	}
 
 	render() {
@@ -197,11 +194,15 @@ class Board extends Component {
 			
 			if (isSolved) {
 				const { realI, _ } = this.getRealIndexes(i, 0)
-				if (this.props.board.solvedGroupConnections.indexOf(realI) < 0) {
+				if (!this.props.board.solvedGroupConnections.includes(realI)) {
+					let inputStyles = [styles.connectionText]
+					if (this.props.board.wrongGroupConnections.includes(realI)) {
+						inputStyles.push(styles.connectionTextWrong)
+					}
 					rows.push(
 						<View key={`connection-${i}`} style={[styles.row, styles.connectionRow]}>
 							<TextInput placeholder="מה הקשר?" 
-								style={styles.connectionText}
+								style={inputStyles}
 								onChangeText={text => this.setState({ [`connectionText${i}`]: text })}
 								value={this.state[`connectionText${i}`]}
 								returnKeyType='done'
@@ -264,7 +265,10 @@ const styles = StyleSheet.create({
 	},
 	tile: {
 		flexGrow: 1,
-		flexBasis: 0
+		flexBasis: 0,
+		transform: [{
+			translateX: 0
+		}]
 	},
 	animatedTile: {
 		position: 'absolute',
@@ -280,6 +284,9 @@ const styles = StyleSheet.create({
 		borderRadius: 5,
 		backgroundColor: 'rgb(153, 255, 173)',
 		textAlign: /*I18nManager.isRTL ? */'right'// : 'left'
+	},
+	connectionTextWrong: {
+		backgroundColor: 'rgb(255, 210, 210)'
 	}
 })
 
